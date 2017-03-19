@@ -40,6 +40,8 @@ my @samp_subset;
 my $max_paralog_inds = 1000000;
 my $max_low_cov_inds = 1000000;
 my $hap_rescue = 0.05;
+my $bampath = '';	#CEB this is the absolute path to the directory where all bam files exist; ex: /mapping
+my $cutoffs = '';	#CEB this is the cutoff1.cutoff2 from ddocent. this makes RAD haplotyper compatible with CEB's modified dDocent files where cutoff1 and 2 from assembly are retained in file names
 
 GetOptions(	'version' => \$opt_version,
 			'vcffile|v=s' => \$vcffile,
@@ -64,8 +66,18 @@ GetOptions(	'version' => \$opt_version,
 			'max_paralog_inds|mp=s' => \$max_paralog_inds,
 			'max_low_cov_inds|ml=s' => \$max_low_cov_inds,
 			'hap_rescue|z=s' => \$hap_rescue
+			'bampath|bp=s' => \$bampath,	#CEB added
+			'cutoffs|co=s' => \$cutoffs #CEB added
 
 			);
+
+#CEB inserted nested if statement to add a / at end of $bampath if it's not there
+if ($bampath ne '') {
+	my $chkslash = substr $bampath, -1;
+	if($chkslash ne '/') {
+		$bampath = "$bampath/";
+	}
+}
 
 #open(DUMP, ">", 'debug.out') or die $!;
 
@@ -503,13 +515,13 @@ foreach my $ind (@samples) {
 		}
 
 
-		my ($hap_ref, $failed) = build_haps($locus, $ind, $reference, \%snps, \%alleles, \%indiv_index, $depth, $hap_rescue);
+		my ($hap_ref, $failed) = build_haps($locus, $ind, $reference, \%snps, \%alleles, \%indiv_index, $depth, $hap_rescue, $bampath, $cutoffs);	#CEB added $bampath $cutoffs
 		@haplotypes = @{$hap_ref};
 
 
 		if ($failed) {
 			print LOG "Failed, trying to recover...\n" if $debug;
-			my ($hap_ref, $failed2) = build_haps($locus, $ind, $reference, \%snps, \%alleles, \%indiv_index, 100, $hap_rescue);
+			my ($hap_ref, $failed2) = build_haps($locus, $ind, $reference, \%snps, \%alleles, \%indiv_index, 100, $hap_rescue, $bampath, $cutoffs);	#CEB added $bampath $cutoffs
 			if ($failed2) {
 				print LOG "Failed again...\n" if $debug;
 				$fail_codes{$locus} = $failed2;
@@ -1267,6 +1279,8 @@ sub build_haps {
 	my %indiv_index = %{$_[5]};
 	my $depth = $_[6];
 	my $rescue = $_[7];
+	my $bampath = $_[8];	#CEB added this line
+	my $cutoffs = $_[9];	#CEB added this line
 
 	my $indiv_no = $indiv_index{$ind};
 
@@ -1282,10 +1296,10 @@ sub build_haps {
 
 	# Check to see if the dDocent version of the BAM file exists, if not, use the original name
 	my $bam;
-	if (-e "$ind-RG.bam") {
-		$bam = "$ind-RG.bam";
-	} elsif (-e "$ind.bam") {
-		$bam = "$ind.bam";
+	if (-e "$bampath$ind.$cutoffs-RG.bam") {	#CEB added $bampath and .$cutoffs
+		$bam = "$bampath$ind.$cutoffs-RG.bam";	#CEB added $bampath and .$cutoffs
+	} elsif (-e "$bampath$ind.$cutoffs.bam") {	#CEB added $bampath and .$cutoffs
+		$bam = "$bampath$ind.$cutoffs.bam";	#CEB added $bampath and .$cutoffs
 	} else {
 		die "Can't find BAM file for individual: $ind";
 	}
